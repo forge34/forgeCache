@@ -1,5 +1,5 @@
 BINARY_NAME=redis-clone
-MAIN_PATH=cmd/server/main.go
+MAIN_PATH=server/main.go
 
 .PHONY: all build run clean
 

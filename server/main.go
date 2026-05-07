@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/forge34/forgeCache/resp"
 )
 
 func main() {
@@ -40,13 +43,19 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	buf := make([]byte, 1024)
+	parser := resp.NewParser(conn)
+
 	for {
-		n, err := conn.Read(buf)
+		v, err := parser.Read()
 		if err != nil {
+			if err == io.EOF {
+				return
+			}
+			log.Println("error:", err)
 			return
 		}
-		fmt.Printf("Received: %s", string(buf[:n]))
 
+		fmt.Printf(v.Pretty(""))
+		conn.Write([]byte("+OK\r\n"))
 	}
 }
