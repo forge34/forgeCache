@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/forge34/forgeCache/command"
 	"github.com/forge34/forgeCache/resp"
 )
 
@@ -44,6 +45,7 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	parser := resp.NewParser(conn)
+	writer := resp.NewWriter(conn)
 
 	for {
 		v, err := parser.Read()
@@ -56,6 +58,8 @@ func handleConnection(conn net.Conn) {
 		}
 
 		fmt.Printf(v.Pretty(""))
-		conn.Write([]byte("+OK\r\n"))
+		d := command.NewDispatcher()
+		res := d.Dispatch(v)
+		writer.Write(res)
 	}
 }

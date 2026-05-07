@@ -1,6 +1,9 @@
 package resp
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 type ValueType byte
 
@@ -17,6 +20,67 @@ type Value struct {
 	Str   string
 	Num   int64
 	Array []Value
+}
+
+func (v Value) Marshal() []byte {
+	switch v.Typ {
+	case STRING:
+		return v.MarshalString()
+	case INTEGER:
+		return v.MarshalInteger()
+	case ERROR:
+		return v.MarshalError()
+	case BULKSTR:
+		return v.MarshalBulkStr()
+	case ARRAY:
+		return v.MarshalArray()
+	default:
+
+		return []byte{}
+	}
+}
+
+func (v Value) MarshalArray() []byte {
+	var p []byte
+	n := len(v.Array)
+	p = append(p, '*')
+	p = append(p, []byte(strconv.Itoa(n))...)
+	p = append(p, '\r', '\n')
+
+	for i := range n {
+		p2 := v.Array[i].Marshal()
+		p = append(p, p2...)
+	}
+	return p
+}
+
+func (v Value) MarshalBulkStr() []byte {
+	var p []byte
+	n := len(v.Str)
+	p = append(p, '$')
+	p = append(p, []byte(strconv.Itoa(n))...)
+	p = append(p, '\r', '\n')
+	p = append(p, []byte(v.Str)...)
+	p = append(p, '\r', '\n')
+	return p
+}
+
+func (v Value) MarshalInteger() []byte {
+	str := ":" + strconv.FormatInt(v.Num, 10) + "\r\n"
+
+	return []byte(str)
+}
+
+func (v Value) MarshalError() []byte {
+	str := "-" + v.Str + "\r\n"
+
+	return []byte(str)
+}
+
+func (v Value) MarshalString() []byte {
+	str := "+" + v.Str + "\r\n"
+
+	return []byte(str)
 }
 
 func (v Value) Pretty(indent string) string {
