@@ -20,6 +20,7 @@ type Value struct {
 	Str   string
 	Num   int64
 	Array []Value
+	IsNil bool
 }
 
 func (v Value) Marshal() []byte {
@@ -55,6 +56,9 @@ func (v Value) MarshalArray() []byte {
 }
 
 func (v Value) MarshalBulkStr() []byte {
+	if v.IsNil{
+		return []byte("$-1\r\n")
+	}
 	var p []byte
 	n := len(v.Str)
 	p = append(p, '$')

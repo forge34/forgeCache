@@ -74,7 +74,7 @@ func (p *Parser) ReadBulk() (Value, error) {
 	}
 
 	if n == -1 {
-		return Value{Typ: BULKSTR, Str: ""}, nil
+		return Value{Typ: BULKSTR, IsNil: true}, nil
 	}
 
 	length := int(n)
