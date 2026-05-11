@@ -8,11 +8,12 @@ import (
 
 type Dispatcher struct {
 	comamnder *Commander
+	store     *Store
 }
 
-func NewDispatcher() *Dispatcher {
+func NewDispatcher(s *Store) *Dispatcher {
 	c := NewCommander()
-	return &Dispatcher{comamnder: c}
+	return &Dispatcher{comamnder: c, store: s}
 }
 
 func (d *Dispatcher) Dispatch(v resp.Value) resp.Value {
@@ -28,5 +29,5 @@ func (d *Dispatcher) Dispatch(v resp.Value) resp.Value {
 		return resp.Value{Typ: resp.ERROR, Str: "ERR unknown command '" + cmd + "'"}
 	}
 
-	return handler(args)
+	return handler(d.store, args)
 }

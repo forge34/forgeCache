@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	store := command.NewStore()
 	listener, err := net.Listen("tcp", ":4000")
 	if err != nil {
 		log.Fatal("Error listening: ", err)
@@ -35,18 +36,19 @@ func main() {
 			log.Println("Listener closed, stopping accept loop.")
 			break
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, store)
 	}
 
 	log.Println("Server exited cleanly")
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, s *command.Store) {
 	defer conn.Close()
 
 	parser := resp.NewParser(conn)
 	writer := resp.NewWriter(conn)
 
+	d := command.NewDispatcher(s)
 	for {
 		v, err := parser.Read()
 		if err != nil {
@@ -58,7 +60,6 @@ func handleConnection(conn net.Conn) {
 		}
 
 		fmt.Printf(v.Pretty(""))
-		d := command.NewDispatcher()
 		res := d.Dispatch(v)
 		writer.Write(res)
 	}
