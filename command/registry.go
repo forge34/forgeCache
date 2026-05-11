@@ -10,15 +10,21 @@ type (
 	HandlerMap map[string]Handler
 )
 
-var Handlers = HandlerMap{
-	"PING":   ping,
-	"SET":    set,
-	"DEL":    delete,
-	"GET":    get,
-	"INCR":   increase,
-	"EXISTS": exists,
-	"APPEND": append,
-	"DECR":   decrease,
+type Commander struct {
+	handlers HandlerMap
+}
+
+func NewCommander() *Commander {
+	return &Commander{handlers: HandlerMap{
+		"PING":   ping,
+		"SET":    set,
+		"DEL":    delete,
+		"GET":    get,
+		"INCR":   increase,
+		"EXISTS": exists,
+		"APPEND": append,
+		"DECR":   decrease,
+	}}
 }
 
 func delete(args []resp.Value) resp.Value {
