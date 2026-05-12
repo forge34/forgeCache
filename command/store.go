@@ -8,7 +8,7 @@ type MapValue struct {
 }
 
 type Store struct {
-	mu    sync.RWMutex
+	mu   sync.RWMutex
 	data map[string]*MapValue
 }
 
@@ -26,7 +26,7 @@ func (s *Store) Set(key string, value *MapValue) {
 
 func (s *Store) Get(key string) (*MapValue, bool) {
 	s.mu.RLock()
-	defer s.mu.Unlock()
+	defer s.mu.RUnlock()
 	val, ok := s.data[key]
 
 	if !ok {
@@ -50,7 +50,7 @@ func (s *Store) Delete(key string) bool {
 
 func (s *Store) Len() int {
 	s.mu.RLock()
-	defer s.mu.Unlock()
+	defer s.mu.RUnlock()
 	return len(s.data)
 }
 
