@@ -1,6 +1,9 @@
 package command
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type MapValue struct {
 	Value     any
@@ -30,6 +33,10 @@ func (s *Store) Get(key string) (*MapValue, bool) {
 	val, ok := s.data[key]
 
 	if !ok {
+		return nil, false
+	}
+
+	if val.ExpiresAt != 0 && val.ExpiresAt < time.Now().UnixNano() {
 		return nil, false
 	}
 

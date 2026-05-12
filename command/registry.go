@@ -3,6 +3,8 @@ package command
 
 import (
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/forge34/forgeCache/resp"
 )
@@ -41,8 +43,15 @@ func set(s *Store, args []resp.Value) resp.Value {
 
 	key := args[0].Str
 	value := args[1].Str
-
-	s.Set(key, &MapValue{Value: value, ExpiresAt: 0})
+	var expiresAt int64
+	if len(args) >= 4 && strings.ToUpper(args[2].Str) == "EX" {
+		ttl, err := strconv.ParseInt(args[3].Str, 10, 64)
+		if err != nil {
+			return resp.Value{Typ: resp.ERROR, Str: "ERR invalid expire time"}
+		}
+		expiresAt = time.Now().UTC().Add(time.Duration(ttl) * time.Second).UnixNano()
+	}
+	s.Set(key, &MapValue{Value: value, ExpiresAt: expiresAt})
 	return resp.Value{Typ: resp.STRING, Str: "OK"}
 }
 
