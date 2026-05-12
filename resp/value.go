@@ -56,7 +56,7 @@ func (v Value) MarshalArray() []byte {
 }
 
 func (v Value) MarshalBulkStr() []byte {
-	if v.IsNil{
+	if v.IsNil {
 		return []byte("$-1\r\n")
 	}
 	var p []byte
@@ -94,7 +94,7 @@ func (v Value) Pretty(indent string) string {
 		for _, item := range v.Array {
 			s += indent + "  " + item.Pretty(indent+"  ") + "\n"
 		}
-		s += indent + "]"
+		s += indent + "]" + "\n"
 		return s
 
 	case BULKSTR:
