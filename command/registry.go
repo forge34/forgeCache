@@ -52,9 +52,9 @@ func get(s *Store, args []resp.Value) resp.Value {
 	}
 
 	key := args[0].Str
-	entry := s.Get(key)
+	entry, ok := s.Get(key)
 
-	if entry == nil {
+	if !ok {
 		return resp.Value{Typ: resp.BULKSTR, IsNil: true}
 	}
 
@@ -63,27 +63,121 @@ func get(s *Store, args []resp.Value) resp.Value {
 		return resp.Value{Typ: resp.BULKSTR, Str: v}
 	case int64:
 		return resp.Value{Typ: resp.BULKSTR, Str: strconv.FormatInt(v, 10)}
-	case int:
-		return resp.Value{Typ: resp.BULKSTR, Str: strconv.Itoa(v)}
 	default:
 		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
 	}
 }
 
 func deleteKey(s *Store, args []resp.Value) resp.Value {
-	return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	if len(args) < 1 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR wrong number of arguments"}
+	}
+
+	deletes := 0
+	for _, v := range args {
+		ok := s.Delete(v.Str)
+
+		if ok {
+			deletes += 1
+		}
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: int64(deletes)}
 }
 
 func exists(s *Store, args []resp.Value) resp.Value {
-	return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	if len(args) < 1 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR wrong number of arguments"}
+	}
+
+	count := 0
+	for _, v := range args {
+		_, ok := s.Get(v.Str)
+
+		if ok {
+			count += 1
+		}
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: int64(count)}
 }
 
 func increase(s *Store, args []resp.Value) resp.Value {
-	return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	if len(args) != 1 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR wrong number of arguments"}
+	}
+
+	key := args[0].Str
+
+	v, ok := s.Get(key)
+	var current int64
+
+	if !ok {
+		current = 0
+	} else {
+		switch val := v.Value.(type) {
+		case int:
+			current = int64(val)
+		case int64:
+			current = val
+		case string:
+			n, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				return resp.Value{Typ: resp.ERROR, Str: "ERR value is not an integer"}
+			}
+			current = n
+		default:
+			return resp.Value{Typ: resp.ERROR, Str: "ERR wrong type"}
+		}
+	}
+
+	current++
+
+	s.Set(key, &MapValue{Value: current})
+
+	return resp.Value{
+		Typ: resp.INTEGER,
+		Num: current,
+	}
 }
 
 func decrease(s *Store, args []resp.Value) resp.Value {
-	return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	if len(args) != 1 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR wrong number of arguments"}
+	}
+
+	key := args[0].Str
+
+	v, ok := s.Get(key)
+	var current int64
+
+	if !ok {
+		current = 0
+	} else {
+		switch val := v.Value.(type) {
+		case int:
+			current = int64(val)
+		case int64:
+			current = val
+		case string:
+			n, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				return resp.Value{Typ: resp.ERROR, Str: "ERR value is not an integer"}
+			}
+			current = n
+		default:
+			return resp.Value{Typ: resp.ERROR, Str: "ERR wrong type"}
+		}
+	}
+
+	current--
+
+	s.Set(key, &MapValue{Value: current})
+
+	return resp.Value{
+		Typ: resp.INTEGER,
+		Num: current,
+	}
 }
 
 func appendStr(s *Store, args []resp.Value) resp.Value {
@@ -91,5 +185,8 @@ func appendStr(s *Store, args []resp.Value) resp.Value {
 }
 
 func ping(s *Store, args []resp.Value) resp.Value {
-	return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	if len(args) == 0 {
+		return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	}
+	return resp.Value{Typ: resp.BULKSTR, Str: args[0].Str}
 }

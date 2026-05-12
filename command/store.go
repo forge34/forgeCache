@@ -4,34 +4,58 @@ import "sync"
 
 type MapValue struct {
 	Value     any
-	ExpiresAt int
+	ExpiresAt int64
 }
 
 type Store struct {
 	mu    sync.Mutex
-	Store map[string]*MapValue
+	data map[string]*MapValue
 }
 
 func NewStore() *Store {
 	return &Store{
-		Store: make(map[string]*MapValue),
+		data: make(map[string]*MapValue),
 	}
 }
 
 func (s *Store) Set(key string, value *MapValue) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Store[key] = value
+	s.data[key] = value
 }
 
-func (s *Store) Get(key string) *MapValue {
+func (s *Store) Get(key string) (*MapValue, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	val, ok := s.Store[key]
+	val, ok := s.data[key]
 
 	if !ok {
-		return nil
+		return nil, false
 	}
 
-	return val
+	return val, true
+}
+
+func (s *Store) Delete(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.data[key]; !ok {
+		return false
+	}
+	delete(s.data, key)
+
+	return true
+}
+
+func (s *Store) Len() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.data)
+}
+
+func (s *Store) Clear() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	clear(s.data)
 }
