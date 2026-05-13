@@ -24,19 +24,20 @@ func NewCommander() *Commander {
 	return &Commander{
 		store: s,
 		handlers: HandlerMap{
-			"PING":   ping,
-			"SET":    set,
-			"DEL":    deleteKey,
-			"GET":    get,
-			"INCR":   increase,
-			"EXISTS": exists,
-			"APPEND": appendStr,
-			"DECR":   decrease,
-			"EXPIRE": expire,
-			"TTL":    checkTTL,
-			"HSET":   hset,
-			"HGET":   hget,
-			"HDEL":   hdel,
+			"PING":    ping,
+			"SET":     set,
+			"DEL":     deleteKey,
+			"GET":     get,
+			"INCR":    increase,
+			"EXISTS":  exists,
+			"APPEND":  appendStr,
+			"DECR":    decrease,
+			"EXPIRE":  expire,
+			"TTL":     checkTTL,
+			"HSET":    hset,
+			"HGET":    hget,
+			"HDEL":    hdel,
+			"HGETALL": hgetall,
 		},
 	}
 }
@@ -92,6 +93,35 @@ func expire(s *Store, args []resp.Value) resp.Value {
 	}
 
 	return resp.Value{Typ: resp.INTEGER, Num: 1}
+}
+
+func hgetall(s *Store, args []resp.Value) resp.Value {
+	if len(args) != 1 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+
+	entry, ok := s.Get(key)
+
+	if !ok {
+		return resp.Value{Typ: resp.ARRAY, Array: []resp.Value{}}
+	}
+
+	hsh, ok := entry.Value.(map[string]string)
+
+	if !ok {
+		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
+	}
+
+	var arr []resp.Value
+
+	for field, val := range hsh {
+		arr = append(arr, resp.Value{Typ: resp.BULKSTR, Str: field})
+		arr = append(arr, resp.Value{Typ: resp.BULKSTR, Str: val})
+	}
+
+	return resp.Value{Typ: resp.ARRAY, Array: arr}
 }
 
 func hdel(s *Store, args []resp.Value) resp.Value {
