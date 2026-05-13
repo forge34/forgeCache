@@ -19,8 +19,7 @@ type Commander struct {
 	store    *Store
 }
 
-func NewCommander() *Commander {
-	s := NewStore()
+func NewCommander(s *Store) *Commander {
 	return &Commander{
 		store: s,
 		handlers: HandlerMap{
@@ -42,6 +41,22 @@ func NewCommander() *Commander {
 			"HLEN":    hlen,
 		},
 	}
+}
+
+func (c *Commander) Execute(v resp.Value) resp.Value {
+	if v.Typ != resp.ARRAY || len(v.Array) == 0 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR invalid command"}
+	}
+
+	cmd := strings.ToUpper(v.Array[0].Str)
+	args := v.Array[1:]
+
+	handler, ok := c.handlers[cmd]
+	if !ok {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR unknown command '" + cmd + "'"}
+	}
+
+	return handler(c.store, args)
 }
 
 func checkTTL(s *Store, args []resp.Value) resp.Value {
