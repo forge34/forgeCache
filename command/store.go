@@ -1,6 +1,7 @@
 package command
 
 import (
+	"strconv"
 	"sync"
 	"time"
 )
@@ -19,6 +20,54 @@ func NewStore() *Store {
 	return &Store{
 		data: make(map[string]*MapValue),
 	}
+}
+
+func (s *Store) IncrDecr(key string, decrease bool) (int64, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, ok := s.data[key]
+
+	var current int64
+
+	if !ok {
+		current = 0
+	} else {
+		switch val := v.Value.(type) {
+		case int:
+			current = int64(val)
+
+		case int64:
+			current = val
+
+		case string:
+			n, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				return 0, false
+			}
+
+			current = n
+
+		default:
+			return 0, false
+		}
+	}
+
+	if decrease {
+		current--
+	} else {
+		current++
+	}
+
+	if ok {
+		v.Value = current
+	} else {
+		s.data[key] = &MapValue{
+			Value: current,
+		}
+	}
+
+	return current, true
 }
 
 func (s *Store) UpdateExpiry(key string, t time.Time) bool {

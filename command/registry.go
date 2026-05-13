@@ -22,6 +22,7 @@ type Commander struct {
 func NewCommander() *Commander {
 	s := NewStore()
 	return &Commander{
+		store: s,
 		handlers: HandlerMap{
 			"PING":   ping,
 			"SET":    set,
@@ -34,7 +35,6 @@ func NewCommander() *Commander {
 			"EXPIRE": expire,
 			"TTL":    checkTTL,
 		},
-		store: s,
 	}
 }
 
@@ -172,36 +172,15 @@ func increase(s *Store, args []resp.Value) resp.Value {
 	}
 
 	key := args[0].Str
-
-	v, ok := s.Get(key)
-	var current int64
+	newVal, ok := s.IncrDecr(key, false)
 
 	if !ok {
-		current = 0
-	} else {
-		switch val := v.Value.(type) {
-		case int:
-			current = int64(val)
-		case int64:
-			current = val
-		case string:
-			n, err := strconv.ParseInt(val, 10, 64)
-			if err != nil {
-				return resp.Value{Typ: resp.ERROR, Str: "ERR value is not an integer"}
-			}
-			current = n
-		default:
-			return resp.Value{Typ: resp.ERROR, Str: "ERR wrong type"}
-		}
+		return resp.Value{Typ: resp.ERROR, Str: "ERR value is not an integer"}
 	}
-
-	current++
-
-	s.Set(key, &MapValue{Value: current})
 
 	return resp.Value{
 		Typ: resp.INTEGER,
-		Num: current,
+		Num: newVal,
 	}
 }
 
@@ -211,36 +190,15 @@ func decrease(s *Store, args []resp.Value) resp.Value {
 	}
 
 	key := args[0].Str
-
-	v, ok := s.Get(key)
-	var current int64
+	newVal, ok := s.IncrDecr(key, true)
 
 	if !ok {
-		current = 0
-	} else {
-		switch val := v.Value.(type) {
-		case int:
-			current = int64(val)
-		case int64:
-			current = val
-		case string:
-			n, err := strconv.ParseInt(val, 10, 64)
-			if err != nil {
-				return resp.Value{Typ: resp.ERROR, Str: "ERR value is not an integer"}
-			}
-			current = n
-		default:
-			return resp.Value{Typ: resp.ERROR, Str: "ERR wrong type"}
-		}
+		return resp.Value{Typ: resp.ERROR, Str: "ERR value is not an integer"}
 	}
-
-	current--
-
-	s.Set(key, &MapValue{Value: current})
 
 	return resp.Value{
 		Typ: resp.INTEGER,
-		Num: current,
+		Num: newVal,
 	}
 }
 
