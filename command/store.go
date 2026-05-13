@@ -21,6 +21,19 @@ func NewStore() *Store {
 	}
 }
 
+func (s *Store) UpdateExpiry(key string, t time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, ok := s.data[key]
+	if !ok || v == nil {
+		return false
+	}
+
+	v.ExpiresAt = t.UnixNano()
+	return true
+}
+
 func (s *Store) Set(key string, value *MapValue) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

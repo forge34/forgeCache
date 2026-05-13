@@ -31,9 +31,64 @@ func NewCommander() *Commander {
 			"EXISTS": exists,
 			"APPEND": appendStr,
 			"DECR":   decrease,
+			"EXPIRE": expire,
+			"TTL":    checkTTL,
 		},
 		store: s,
 	}
+}
+
+func checkTTL(s *Store, args []resp.Value) resp.Value {
+	if len(args) != 1 {
+		return resp.Value{
+			Typ: resp.ERROR,
+			Str: "ERR wrong number of arguments",
+		}
+	}
+
+	key := args[0].Str
+
+	v, ok := s.Get(key)
+	if !ok {
+		return resp.Value{
+			Typ: resp.INTEGER,
+			Num: -2,
+		}
+	}
+
+	if v.ExpiresAt == 0 {
+		return resp.Value{
+			Typ: resp.INTEGER,
+			Num: -1,
+		}
+	}
+
+	timeLeft := v.ExpiresAt - time.Now().UnixNano()
+
+	return resp.Value{
+		Typ: resp.INTEGER,
+		Num: timeLeft / int64(time.Second),
+	}
+}
+
+func expire(s *Store, args []resp.Value) resp.Value {
+	if len(args) < 2 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+	value := args[1].Str
+	ttl, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR invalid expire time"}
+	}
+	ok := s.UpdateExpiry(key, time.Now().Add(time.Duration(ttl)*time.Second))
+
+	if !ok {
+		return resp.Value{Typ: resp.INTEGER, Num: 0}
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: 1}
 }
 
 func set(s *Store, args []resp.Value) resp.Value {
@@ -190,7 +245,28 @@ func decrease(s *Store, args []resp.Value) resp.Value {
 }
 
 func appendStr(s *Store, args []resp.Value) resp.Value {
-	return resp.Value{Typ: resp.STRING, Str: "PONG"}
+	if len(args) != 2 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR wrong number of arguments"}
+	}
+
+	key := args[0].Str
+	val := args[1].Str
+	v, ok := s.Get(key)
+
+	if !ok {
+		s.Set(key, &MapValue{Value: val, ExpiresAt: 0})
+		return resp.Value{Typ: resp.INTEGER, Num: int64(len(val))}
+	}
+
+	switch v.Value.(type) {
+	case string:
+		newStr := v.Value.(string) + val
+		n := int64(len(newStr))
+		s.Set(key, &MapValue{Value: newStr, ExpiresAt: v.ExpiresAt})
+		return resp.Value{Typ: resp.INTEGER, Num: n}
+	default:
+		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
+	}
 }
 
 func ping(s *Store, args []resp.Value) resp.Value {
