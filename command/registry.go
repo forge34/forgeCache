@@ -154,16 +154,14 @@ func exists(s *Store, args []resp.Value) resp.Value {
 		return resp.Value{Typ: resp.ERROR, Str: "ERR wrong number of arguments"}
 	}
 
-	count := 0
-	for _, v := range args {
-		_, ok := s.Get(v.Str)
+	keys := make([]string, 0, len(args))
 
-		if ok {
-			count += 1
-		}
+	for _, arg := range args {
+		keys = append(keys, arg.Str)
 	}
 
-	return resp.Value{Typ: resp.INTEGER, Num: int64(count)}
+	count := s.Exists(keys)
+	return resp.Value{Typ: resp.INTEGER, Num: count}
 }
 
 func increase(s *Store, args []resp.Value) resp.Value {

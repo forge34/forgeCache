@@ -70,6 +70,22 @@ func (s *Store) IncrDecr(key string, decrease bool) (int64, bool) {
 	return current, true
 }
 
+func (s *Store) Exists(keys []string) int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var count int64 = 0
+	now := time.Now().UnixNano()
+	for _, key := range keys {
+		val, ok := s.data[key]
+		if ok {
+			if val.ExpiresAt == 0 || val.ExpiresAt > now {
+				count++
+			}
+		}
+	}
+	return count
+}
+
 func (s *Store) UpdateExpiry(key string, t time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
