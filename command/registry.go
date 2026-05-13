@@ -38,6 +38,8 @@ func NewCommander() *Commander {
 			"HGET":    hget,
 			"HDEL":    hdel,
 			"HGETALL": hgetall,
+			"HEXISTS": hexists,
+			"HLEN":    hlen,
 		},
 	}
 }
@@ -87,6 +89,56 @@ func expire(s *Store, args []resp.Value) resp.Value {
 		return resp.Value{Typ: resp.ERROR, Str: "ERR invalid expire time"}
 	}
 	ok := s.UpdateExpiry(key, time.Now().Add(time.Duration(ttl)*time.Second))
+
+	if !ok {
+		return resp.Value{Typ: resp.INTEGER, Num: 0}
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: 1}
+}
+
+func hlen(s *Store, args []resp.Value) resp.Value {
+	if len(args) != 1 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+
+	entry, ok := s.Get(key)
+
+	if !ok {
+		return resp.Value{Typ: resp.INTEGER, Num: 0}
+	}
+
+	hsh, ok := entry.Value.(map[string]string)
+
+	if !ok {
+		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: int64(len(hsh))}
+}
+
+func hexists(s *Store, args []resp.Value) resp.Value {
+	if len(args) != 2 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+
+	entry, ok := s.Get(key)
+
+	if !ok {
+		return resp.Value{Typ: resp.INTEGER, Num: 0}
+	}
+
+	hsh, ok := entry.Value.(map[string]string)
+
+	if !ok {
+		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
+	}
+
+	_, ok = hsh[args[1].Str]
 
 	if !ok {
 		return resp.Value{Typ: resp.INTEGER, Num: 0}
