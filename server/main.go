@@ -13,8 +13,36 @@ import (
 	"github.com/forge34/forgeCache/resp"
 )
 
+func loadAOF(s *command.Store) {
+	file, err := os.Open(command.AOFPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		log.Fatal(err)
+	}
+	defer file.Close()
+	parser := resp.NewParser(file)
+
+	d := command.NewDispatcher(s)
+
+	for {
+		v, err := parser.Read()
+		if err != nil {
+			if err == io.EOF {
+				return
+			}
+			log.Println("error:", err)
+			return
+		}
+
+		d.Dispatch(v, false)
+	}
+}
+
 func main() {
 	store := command.NewStore()
+	loadAOF(store)
 	listener, err := net.Listen("tcp", ":4000")
 	if err != nil {
 		log.Fatal("Error listening: ", err)
@@ -60,7 +88,7 @@ func handleConnection(conn net.Conn, s *command.Store) {
 		}
 
 		fmt.Printf(v.Pretty(""))
-		res := d.Dispatch(v)
+		res := d.Dispatch(v, true)
 		writer.Write(res)
 	}
 }

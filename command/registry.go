@@ -2,6 +2,8 @@
 package command
 
 import (
+	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -9,41 +11,53 @@ import (
 	"github.com/forge34/forgeCache/resp"
 )
 
+type Handler struct {
+	fn       func(*Store, []resp.Value) resp.Value
+	writeCmd bool
+}
+
 type (
-	Handler    func(*Store, []resp.Value) resp.Value
 	HandlerMap map[string]Handler
 )
+
+const AOFPath = "appendonly.aof"
 
 type Commander struct {
 	handlers HandlerMap
 	store    *Store
+	aof      *os.File
 }
 
 func NewCommander(s *Store) *Commander {
+	file, err := os.OpenFile("appendonly.aof", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return &Commander{
+		aof:   file,
 		store: s,
 		handlers: HandlerMap{
-			"PING":    ping,
-			"SET":     set,
-			"DEL":     deleteKey,
-			"GET":     get,
-			"INCR":    increase,
-			"EXISTS":  exists,
-			"APPEND":  appendStr,
-			"DECR":    decrease,
-			"EXPIRE":  expire,
-			"TTL":     checkTTL,
-			"HSET":    hset,
-			"HGET":    hget,
-			"HDEL":    hdel,
-			"HGETALL": hgetall,
-			"HEXISTS": hexists,
-			"HLEN":    hlen,
+			"PING":    {fn: ping, writeCmd: false},
+			"SET":     {fn: set, writeCmd: true},
+			"DEL":     {fn: deleteKey, writeCmd: true},
+			"GET":     {fn: get, writeCmd: false},
+			"INCR":    {fn: increase, writeCmd: true},
+			"DECR":    {fn: decrease, writeCmd: true},
+			"EXISTS":  {fn: exists, writeCmd: false},
+			"APPEND":  {fn: appendStr, writeCmd: true},
+			"EXPIRE":  {fn: expire, writeCmd: true},
+			"TTL":     {fn: checkTTL, writeCmd: false},
+			"HSET":    {fn: hset, writeCmd: true},
+			"HGET":    {fn: hget, writeCmd: false},
+			"HDEL":    {fn: hdel, writeCmd: true},
+			"HGETALL": {fn: hgetall, writeCmd: false},
+			"HEXISTS": {fn: hexists, writeCmd: false},
+			"HLEN":    {fn: hlen, writeCmd: false},
 		},
 	}
 }
 
-func (c *Commander) Execute(v resp.Value) resp.Value {
+func (c *Commander) Execute(v resp.Value , write bool) resp.Value {
 	if v.Typ != resp.ARRAY || len(v.Array) == 0 {
 		return resp.Value{Typ: resp.ERROR, Str: "ERR invalid command"}
 	}
@@ -51,12 +65,26 @@ func (c *Commander) Execute(v resp.Value) resp.Value {
 	cmd := strings.ToUpper(v.Array[0].Str)
 	args := v.Array[1:]
 
+	commandStr := cmd
+
+	for _, v := range args {
+		commandStr += " " + v.Str
+	}
+
 	handler, ok := c.handlers[cmd]
+
+	if handler.writeCmd && write {
+
+		_, err := c.aof.Write(v.Marshal())
+		if err != nil {
+			log.Println("AOF write error:", err)
+		}
+	}
 	if !ok {
 		return resp.Value{Typ: resp.ERROR, Str: "ERR unknown command '" + cmd + "'"}
 	}
 
-	return handler(c.store, args)
+	return handler.fn(c.store, args)
 }
 
 func checkTTL(s *Store, args []resp.Value) resp.Value {

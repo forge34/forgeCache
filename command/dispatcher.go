@@ -13,8 +13,8 @@ func NewDispatcher(s *Store) *Dispatcher {
 	return &Dispatcher{comamnder: c}
 }
 
-func (d *Dispatcher) Dispatch(v resp.Value) resp.Value {
-	result := d.comamnder.Execute(v)
+func (d *Dispatcher) Dispatch(v resp.Value, write bool) resp.Value {
+	result := d.comamnder.Execute(v,write)
 
 	return result
 }
