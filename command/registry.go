@@ -36,6 +36,7 @@ func NewCommander() *Commander {
 			"TTL":    checkTTL,
 			"HSET":   hset,
 			"HGET":   hget,
+			"HDEL":   hdel,
 		},
 	}
 }
@@ -93,6 +94,41 @@ func expire(s *Store, args []resp.Value) resp.Value {
 	return resp.Value{Typ: resp.INTEGER, Num: 1}
 }
 
+func hdel(s *Store, args []resp.Value) resp.Value {
+	if len(args) < 2 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+
+	entry, ok := s.Get(key)
+
+	if !ok {
+		return resp.Value{Typ: resp.BULKSTR, IsNil: true}
+	}
+
+	hsh, ok := entry.Value.(map[string]string)
+
+	if !ok {
+		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
+	}
+
+	var deleted int64 = 0
+	for _, field := range args[1:] {
+		_, ok := hsh[field.Str]
+		if ok {
+			delete(hsh, field.Str)
+			deleted++
+		}
+	}
+
+	if len(hsh) == 0 {
+		s.Delete(key)
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: deleted}
+}
+
 func hget(s *Store, args []resp.Value) resp.Value {
 	if len(args) != 2 {
 		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
@@ -108,12 +144,11 @@ func hget(s *Store, args []resp.Value) resp.Value {
 	hsh, ok := entry.Value.(map[string]string)
 
 	if !ok {
-		return resp.Value{Typ: resp.ERROR, Str: "Key doesn't point to a hash"}
+		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
 	}
 
 	value := args[1].Str
 	v, ok := hsh[value]
-
 	if !ok {
 		return resp.Value{Typ: resp.BULKSTR, IsNil: true}
 	}
