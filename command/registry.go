@@ -175,7 +175,9 @@ func hset(s *Store, args []resp.Value) resp.Value {
 			return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
 		}
 	}
-
+	if len(args[1:])%2 != 0 {
+		return resp.Value{Typ: resp.ERROR, Str: "ERR syntax error"}
+	}
 	var added int64
 	for i := 1; i+1 < len(args); i += 2 {
 		field := args[i].Str
