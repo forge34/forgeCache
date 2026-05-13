@@ -17,8 +17,27 @@ type Store struct {
 }
 
 func NewStore() *Store {
-	return &Store{
+	s := &Store{
 		data: make(map[string]*MapValue),
+	}
+
+	go s.activeExpiry()
+	return s
+}
+
+func (s *Store) activeExpiry() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := time.Now().UnixNano()
+		s.mu.Lock()
+		for key, val := range s.data {
+			if val.ExpiresAt != 0 && val.ExpiresAt < now {
+				delete(s.data, key)
+			}
+		}
+		s.mu.Unlock()
 	}
 }
 
@@ -107,14 +126,17 @@ func (s *Store) Set(key string, value *MapValue) {
 
 func (s *Store) Get(key string) (*MapValue, bool) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	val, ok := s.data[key]
+	s.mu.RUnlock()
 
 	if !ok {
 		return nil, false
 	}
 
 	if val.ExpiresAt != 0 && val.ExpiresAt < time.Now().UnixNano() {
+		s.mu.Lock()
+		delete(s.data, key)
+		s.mu.Unlock()
 		return nil, false
 	}
 
