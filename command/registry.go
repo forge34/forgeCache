@@ -34,6 +34,8 @@ func NewCommander() *Commander {
 			"DECR":   decrease,
 			"EXPIRE": expire,
 			"TTL":    checkTTL,
+			"HSET":   hset,
+			"HGET":   hget,
 		},
 	}
 }
@@ -48,7 +50,7 @@ func checkTTL(s *Store, args []resp.Value) resp.Value {
 
 	key := args[0].Str
 
-	v, ok := s.Get(key)
+	entry, ok := s.Get(key)
 	if !ok {
 		return resp.Value{
 			Typ: resp.INTEGER,
@@ -56,14 +58,14 @@ func checkTTL(s *Store, args []resp.Value) resp.Value {
 		}
 	}
 
-	if v.ExpiresAt == 0 {
+	if entry.ExpiresAt == 0 {
 		return resp.Value{
 			Typ: resp.INTEGER,
 			Num: -1,
 		}
 	}
 
-	timeLeft := v.ExpiresAt - time.Now().UnixNano()
+	timeLeft := entry.ExpiresAt - time.Now().UnixNano()
 
 	return resp.Value{
 		Typ: resp.INTEGER,
@@ -89,6 +91,67 @@ func expire(s *Store, args []resp.Value) resp.Value {
 	}
 
 	return resp.Value{Typ: resp.INTEGER, Num: 1}
+}
+
+func hget(s *Store, args []resp.Value) resp.Value {
+	if len(args) != 2 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+	entry, ok := s.Get(key)
+
+	if !ok {
+		return resp.Value{Typ: resp.BULKSTR, IsNil: true}
+	}
+
+	hsh, ok := entry.Value.(map[string]string)
+
+	if !ok {
+		return resp.Value{Typ: resp.ERROR, Str: "Key doesn't point to a hash"}
+	}
+
+	value := args[1].Str
+	v, ok := hsh[value]
+
+	if !ok {
+		return resp.Value{Typ: resp.BULKSTR, IsNil: true}
+	}
+
+	return resp.Value{Typ: resp.BULKSTR, Str: v}
+}
+
+func hset(s *Store, args []resp.Value) resp.Value {
+	if len(args) < 3 {
+		return resp.Value{Typ: resp.ERROR, Str: "Too few arguments"}
+	}
+
+	key := args[0].Str
+	entry, ok := s.Get(key)
+
+	var hash map[string]string
+
+	if !ok {
+		hash = make(map[string]string)
+		s.Set(key, &MapValue{Value: hash})
+	} else {
+		hash, ok = entry.Value.(map[string]string)
+		if !ok {
+			return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
+		}
+	}
+
+	var added int64
+	for i := 1; i+1 < len(args); i += 2 {
+		field := args[i].Str
+		value := args[i+1].Str
+		if _, exists := hash[field]; !exists {
+			added++
+		}
+		hash[field] = value
+	}
+
+	return resp.Value{Typ: resp.INTEGER, Num: added}
 }
 
 func set(s *Store, args []resp.Value) resp.Value {
@@ -207,18 +270,18 @@ func appendStr(s *Store, args []resp.Value) resp.Value {
 
 	key := args[0].Str
 	val := args[1].Str
-	v, ok := s.Get(key)
+	entry, ok := s.Get(key)
 
 	if !ok {
 		s.Set(key, &MapValue{Value: val, ExpiresAt: 0})
 		return resp.Value{Typ: resp.INTEGER, Num: int64(len(val))}
 	}
 
-	switch v.Value.(type) {
+	switch entry.Value.(type) {
 	case string:
-		newStr := v.Value.(string) + val
+		newStr := entry.Value.(string) + val
 		n := int64(len(newStr))
-		s.Set(key, &MapValue{Value: newStr, ExpiresAt: v.ExpiresAt})
+		s.Set(key, &MapValue{Value: newStr, ExpiresAt: entry.ExpiresAt})
 		return resp.Value{Typ: resp.INTEGER, Num: n}
 	default:
 		return resp.Value{Typ: resp.ERROR, Str: "WRONGTYPE Operation against a key holding the wrong kind of value"}
